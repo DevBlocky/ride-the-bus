@@ -1,0 +1,5 @@
+[package]
+name = "ride-the-bus"
+edition = "2024"
+
+[dependencies]
