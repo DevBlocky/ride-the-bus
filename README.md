@@ -5,16 +5,36 @@ application intended to be used while playing the casino game that indicates
 which decision should be made at each step of the game to ensure maximum
 profits (highest expected value).
 
+## Cheatsheet
+
+If played optimally:
+* Overall Expected Value: `1.2250`
+* Average # of plays to profit $10k @ $500/play: `89`
+
+|Stage|Strategy|Examples|
+|-|-|-|
+|Pick Red/Black|Just pick either (it's 50/50)|N/A|
+|Pick Higher/Lower|Cashout on `7,8,9,10`;<br>Otherwise use intuition|`5`: Higher<br>`J`: Lower<br>`8`: Cashout|
+|Pick Inside/Outside|(Where `A-B` is bigger rank minus smaller rank)<br>Inside if `(A-B) >= 9`;<br>Outside if `(A-B) <= 2`;<br>Otherwise Cashout|`2..J`: Inside<br>`2..10`: Cashout<br>`6..8`: Outside<br>`6..9`: Cashout|
+|Pick Suit|Always Cashout|N/A|
+
 ## Principle
 
-This program works by considering every single game of Ride The Bus. Since the game
-itself is very simple, and there are only 4 decisions, we can essentially enumerate
-the cartesian product of each choice and each card. By knowing the EV of the child
-decision, we can know the EV of a card+choice, then we can calculate the EV for a choice
-by averaging all card+choice EVs. We do this up the tree of choices until we have solved
-the entire game.
+This program calculates the expected value (EV) of the game by exhaustively analyzing
+every possible outcome. Here's the breakdown:
 
-## Observations / Cheatsheet
+* For each decision:
+    * **Enumerate** the choices and the cards, forming a cartesian product of choice+card
+    * **For each card+choice**, you evalulate the next decision and use the EV of the optimal choice
+        * If there is no next decision, then you just score the choice+card
+    * **Average** all of the card+choice possibilies to get the EV of just the choice (since the cards are equally random events)
+    * **Select** the optimal choice by finding the choice with the maximum EV
+* This process is bottom-up recursive
+    * Leaf decisions (in this case, Pick Suit or Cashout) are evaluated first
+    * Results then propogate upward through the decision tree
+* The result: Every position possible in the game is solved and scored
+
+## Observations
 
 Ride The Bus's expected value is `1.2250` if played optimally. This means that for
 every dollar you put into the game, you expect to make 22.5 cents back.
@@ -23,8 +43,6 @@ Since the maximum play for Ride The Bus in Schedule I is $500, on average you ex
 to profit $112.50 for each play. To profit $10,000, you would expect to play 89 times.
 
 ### Pick Red/Black
-
-***TL;DR**: Just pick either*
 
 Obviously, you can pick either red or black and have the same odds since it's
 essentially a 50/50 chance.
@@ -35,8 +53,6 @@ of the time, so it's obviously =1.0 for just this step, and since you can Cashou
 you always expect to at least make your money back if played optimally.
 
 ### Pick Higher/Lower
-
-***TL;DR**: Cashout on 7,8,9,10, otherwise use intuition*
 
 On this option, you have to pick whether the unseen card will be
 higher or lower than the last card shown.
@@ -50,9 +66,6 @@ This program calculates that cards 7, 8, 9, and 10 have expected values below 3.
 for either inside/outside, so you should Cashout if you see one of these cards.
 
 ### Pick Inside/Outside
-
-***TL;DR**: Pick outside for A-B<=2, inside for A-B>=9, otherwise Cashout*
-(A-B meaning the smaller rank minus the bigger rank)
 
 For this option, you choose whether the unseen card's rank is inside or outside of 
 the two seen cards. Inside is inclusive, meaning that if the unseen card is either A
@@ -74,8 +87,6 @@ good odds for either Inside/Outside to be able to make more money on average tha
 simply cashingout, else you risk losing the entire bet.
 
 ### Pick Suit
-
-**TL;DR: Always Cashout**
 
 This one is much more obvious, but I wish I realized it sooner.
 
