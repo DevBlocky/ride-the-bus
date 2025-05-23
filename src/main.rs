@@ -1,12 +1,12 @@
 mod card;
 mod decision;
-use std::{io, str::FromStr};
 
 use card::PlayingCard;
 use decision::{
     Choice, DiscreteDecision,
     solver::{DiscreteDecisionTree, EvalChoice, RandomEventOutcome},
 };
+use std::{io, str::FromStr};
 
 #[derive(Debug)]
 enum PickColor {
@@ -176,7 +176,7 @@ fn print_choices(tree: &DiscreteDecisionTree) {
     println!("# Choice = Expected Value");
     // get the EV for the optimal choice, used to show an arrow to the best choices (ones equalling this EV)
     let optimal_ev = tree.optimal().map(|x| x.expected_value).unwrap_or(0.0);
-    for choice in tree.choices() {
+    for choice in tree.iter() {
         print!("{:?} = {:.04}", choice.choice, choice.expected_value);
         if choice.expected_value >= (optimal_ev - 1e-6) {
             println!(" <----");
@@ -189,10 +189,7 @@ fn print_events(tree: &DiscreteDecisionTree, choice_name: &str) {
     // find an option to the target to enumerate for this command
     let list_target = match choice_name {
         "optimal" => tree.optimal(),
-        name => tree
-            .choices()
-            .iter()
-            .find(|ec| format!("{:?}", ec.choice) == name),
+        name => tree.iter().find(|ec| format!("{:?}", ec.choice) == name),
     };
     // either print the cards and their expected values, or say its an invalid target
     if let Some(target) = list_target {
@@ -236,7 +233,7 @@ fn interactive_prompt(tree: &DiscreteDecisionTree) {
         // find the choice the user made by finding the max EV
         // we can do this because the decisions are disjoint (except Cashout, which is always smaller), i.e.
         // a card can only succeed with one decision
-        let choice: Option<&EvalChoice> = tree.choices().iter().max_by(|c1, c2| {
+        let choice: Option<&EvalChoice> = tree.iter().max_by(|c1, c2| {
             let ev1 = c1.get(next_card).map(|o| o.expected_value()).unwrap_or(0.0);
             let ev2 = c2.get(next_card).map(|o| o.expected_value()).unwrap_or(0.0);
             f64::total_cmp(&ev1, &ev2)
@@ -265,7 +262,7 @@ fn main() {
     println!("solving ride the bus");
     let first_decision = DiscreteDecision::new_with_cashout([PickColor::Red, PickColor::Black]);
     let tree = DiscreteDecisionTree::solve(first_decision);
-    println!("all games considered, done!");
+    println!("all {} games considered, done!", tree.outcome_count());
 
     // print the tutorial, then start the interactive loop
     print_help();
