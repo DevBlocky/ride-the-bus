@@ -2,11 +2,8 @@ mod card;
 mod decision;
 
 use card::PlayingCard;
-use decision::{
-    Choice, DiscreteDecision,
-    solver::{DiscreteDecisionTree, EvalChoice, RandomEventOutcome},
-};
-use std::{io, str::FromStr};
+use decision::{Choice, DiscreteDecision, solver::DiscreteDecisionTree};
+use std::{io, str::FromStr, time::Instant};
 
 #[derive(Debug)]
 enum PickColor {
@@ -21,8 +18,11 @@ impl Choice for PickColor {
             _ => unreachable!(),
         }
     }
-    fn next_decision(&self) -> DiscreteDecision {
-        DiscreteDecision::new_with_cashout([PickLatitude::Higher, PickLatitude::Lower])
+    fn next_decision(&self) -> Option<DiscreteDecision> {
+        Some(DiscreteDecision::new_with_cashout([
+            PickLatitude::Higher,
+            PickLatitude::Lower,
+        ]))
     }
 }
 #[derive(Debug)]
@@ -37,8 +37,11 @@ impl Choice for PickLatitude {
             (Self::Higher, false) | (Self::Lower, true) => 0.0,
         }
     }
-    fn next_decision(&self) -> DiscreteDecision {
-        DiscreteDecision::new_with_cashout([PickContained::Inside, PickContained::Outside])
+    fn next_decision(&self) -> Option<DiscreteDecision> {
+        Some(DiscreteDecision::new_with_cashout([
+            PickContained::Inside,
+            PickContained::Outside,
+        ]))
     }
 }
 #[derive(Debug)]
@@ -56,13 +59,13 @@ impl Choice for PickContained {
             (Self::Inside, false) | (Self::Outside, true) => 0.0,
         }
     }
-    fn next_decision(&self) -> DiscreteDecision {
-        DiscreteDecision::new_with_cashout([
+    fn next_decision(&self) -> Option<DiscreteDecision> {
+        Some(DiscreteDecision::new_with_cashout([
             PickSuit::Hearts,
             PickSuit::Diamonds,
             PickSuit::Spades,
             PickSuit::Clubs,
-        ])
+        ]))
     }
 }
 #[derive(Debug)]
@@ -82,8 +85,8 @@ impl Choice for PickSuit {
             _ => unreachable!(),
         }
     }
-    fn next_decision(&self) -> DiscreteDecision {
-        DiscreteDecision::empty()
+    fn next_decision(&self) -> Option<DiscreteDecision> {
+        None
     }
 }
 
@@ -148,7 +151,7 @@ fn print_help() {
 
     println!("\n[Card Format]");
     println!(
-        "Card formats are pretty simple. It's the value (or letter) of the card, plus the suit, case insensitive"
+        "Card formats are pretty simple. It's the rank (number or letter) of the card, plus the suit, case insensitive"
     );
     println!("Examples:");
     println!("2H  = 2 of hearts");
@@ -187,18 +190,20 @@ fn print_choices(tree: &DiscreteDecisionTree) {
 }
 fn print_events(tree: &DiscreteDecisionTree, choice_name: &str) {
     // find an option to the target to enumerate for this command
-    let list_target = match choice_name {
+    let list_target = match choice_name.to_lowercase().as_str() {
         "optimal" => tree.optimal(),
-        name => tree.iter().find(|ec| format!("{:?}", ec.choice) == name),
+        name => tree
+            .iter()
+            .find(|ec| format!("{:?}", ec.choice).to_lowercase() == name),
     };
     // either print the cards and their expected values, or say its an invalid target
     if let Some(target) = list_target {
         println!("[{:?}]", target.choice);
         println!("# REvent = Expected Value");
-        for (card, outcome) in target.iter() {
+        for outcome in target.iter() {
             // only print cards that are winners (EV>0)
-            if outcome.expected_value() > 1e-6 {
-                println!("{} = {:.04}", card, outcome.expected_value());
+            if outcome.value > 1e-6 {
+                println!("{} = {:.04}", outcome.event, outcome.value);
             }
         }
     } else {
@@ -233,36 +238,40 @@ fn interactive_prompt(tree: &DiscreteDecisionTree) {
         // find the choice the user made by finding the max EV
         // we can do this because the decisions are disjoint (except Cashout, which is always smaller), i.e.
         // a card can only succeed with one decision
-        let choice: Option<&EvalChoice> = tree.iter().max_by(|c1, c2| {
-            let ev1 = c1.get(next_card).map(|o| o.expected_value()).unwrap_or(0.0);
-            let ev2 = c2.get(next_card).map(|o| o.expected_value()).unwrap_or(0.0);
+        let choice = tree.iter().max_by(|c1, c2| {
+            let ev1 = c1.get(next_card).map(|o| o.value).unwrap_or(0.0);
+            let ev2 = c2.get(next_card).map(|o| o.value).unwrap_or(0.0);
             f64::total_cmp(&ev1, &ev2)
         });
 
         // get the next tree from the card provided, or error if it was an invalid card, or reset
-        // if no more decisions are needed (caller is looping us)
+        // if there are no more decisions
         println!();
-        let outcome = choice
+        let find = choice
             .inspect(|c| println!("??? So you chose {:?} ???", c.choice))
             .and_then(|c| c.get(next_card));
-        match outcome {
-            Some(RandomEventOutcome::Child {
-                expected_value: _,
-                child,
-            }) => history.push(child),
+        match find.map(|o| o.next_decision()) {
+            Some(Some(next_decision)) => history.push(next_decision),
+            Some(None) => break 'outer, // no next_decision
             None => println!("!!! INVALID CARD PROVIDED !!!"),
-            _ => break 'outer,
         }
     }
     println!("no more decisions, resetting");
 }
 fn main() {
-    // solve ride the bus
-    // this only takes a few seconds, hence why it's fine we do this on every start instead of memoizing
-    println!("solving ride the bus");
     let first_decision = DiscreteDecision::new_with_cashout([PickColor::Red, PickColor::Black]);
+
+    // solve ride the bus
+    // this only takes a about a second, hence why it's fine we do this on every start instead of memoizing
+    println!("solving ride the bus");
+    let start = Instant::now();
     let tree = DiscreteDecisionTree::solve(first_decision);
-    println!("all {} games considered, done!", tree.outcome_count());
+    println!(
+        "analyzed {} games in {:.04?}",
+        tree.outcome_count(),
+        start.elapsed()
+    );
+    println!("all games considered, done!");
 
     // print the tutorial, then start the interactive loop
     print_help();

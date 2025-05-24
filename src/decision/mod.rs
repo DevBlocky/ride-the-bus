@@ -18,7 +18,7 @@ pub trait Choice: std::fmt::Debug {
     fn score(&self, history: &[PlayingCard]) -> f64;
 
     /// The next decision to consider after this choice
-    fn next_decision(&self) -> DiscreteDecision;
+    fn next_decision(&self) -> Option<DiscreteDecision>;
 }
 /// A [`DiscreteDecision`] is a list of all possible [`Choice`]s available
 /// as an option in a decision
@@ -46,12 +46,6 @@ impl DiscreteDecision {
         dd.choices.push(Box::new(Cashout));
         dd
     }
-    /// Creates a [`DiscreteDecision`] with no choices
-    pub fn empty() -> Self {
-        Self {
-            choices: Vec::new(),
-        }
-    }
 }
 impl IntoIterator for DiscreteDecision {
     type Item = Box<dyn Choice>;
@@ -67,7 +61,7 @@ impl Choice for Cashout {
     fn score(&self, _: &[PlayingCard]) -> f64 {
         1.0 // cashout gives identity no matter what
     }
-    fn next_decision(&self) -> DiscreteDecision {
-        DiscreteDecision::empty() // after cashout, no other decisions to make
+    fn next_decision(&self) -> Option<DiscreteDecision> {
+        None // after cashout, no other decisions to make
     }
 }
