@@ -25,9 +25,9 @@ every possible outcome. Here's the breakdown:
 
 * For each decision:
     * **Enumerate** the choices and the cards, forming a cartesian product of choice+card
-    * **For each card+choice**, you evalulate the next decision and use the EV of the optimal choice
+    * **For each choice+card**, you evalulate the next decision and use the EV of the optimal choice
         * If there is no next decision, then you just score the choice+card
-    * **Average** all of the card+choice possibilies to get the EV of just the choice (since the cards are equally random events)
+    * **Average** all of the choice+card possibilies to get the EV of just the choice (since the cards are equally random events)
     * **Select** the optimal choice by finding the choice with the maximum EV
 * This process is bottom-up recursive
     * Leaf decisions (in this case, Pick Suit or Cashout) are evaluated first
@@ -98,7 +98,45 @@ Only if this choice had quadrupled your profits (i.e. it went from 4x->16x), the
 choosing a suit you haven't seen would have a slightly higher expected value than
 Cashout (thanks to sampling w/o replacement).
 
-## Building/Running
+## Prolog
+
+As a programming exercise for myself, I made a port of the solver in Prolog.
+This version uses pretty much the exact same thought process as the Rust code, it's
+somewhat intended as a verification that the rust code was built correctly (i.e. making
+sure EVs match).
+
+**If you want to get started**
+
+```sh
+$ swipl -s ride-the-bus.pl
+# find the best choice expected value
+?- best_choice_ev(1.0, [], pickColor, BestChoice, BestEV).
+# BestChoice = black,
+# BestEV = 1.2249773755656113 .
+```
+
+### Drag Race (Rust vs Prolog)
+
+Not much of a surprise, but the Rust version runs faster. Significantly faster. On
+my M2 Mac Air:
+
+|Benchmark|Time to find EV|
+|-|-|
+|Rust w/ Optimizations|1.05s|
+|Rust No Optimizations|6.65s|
+|Prolog|19.83s|
+
+**Why is this the case?**
+
+Although Prolog has many optimizations for unifying values extremely quickly, the
+nature of this problem means we *must* exhaustively search every game to find the
+final EV. In other words, we exponentially increase our search by using `findall`
+and `maplist`.
+
+In addition, I'm not good a Prolog developer whatsoever. If someone more familiar
+with the language took a crack, they would definitely find a better/faster solution.
+
+## Building/Running Rust
 
 To start, you must have [rust installed](https://www.rust-lang.org/tools/install).
 
